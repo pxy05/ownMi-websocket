@@ -49,10 +49,20 @@ wss.on("connection", async (ws, req) => {
       case "heartbeat":
         console.log("Updating heartbeat for user:", user.id);
         await updateSessionHeartbeat(user.id);
+
+      case "ping":
+        console.log("Received ping from user:", user.id);
+        ws.send(JSON.stringify({ type: "pong" }));
+        break;
       default:
         break;
     }
   });
+});
+
+wss.on("close", async (ws) => {
+  console.log("WebSocket connection closed");
+  await endSession(user.id);
 });
 
 console.log(`✅ WebSocket server running on ws://localhost:${PORT}`);
