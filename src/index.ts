@@ -51,11 +51,11 @@ wss.on("connection", async (ws, req) => {
         console.log("Updating heartbeat for user:", user.id);
         await updateSessionHeartbeat(user.id);
         break;
-      case "ping":
-        console.log("Received ping from user:", user.id);
-        const iexist = await verifySession(user.id);
-        if (iexist) {
-          ws.send(JSON.stringify({ type: "pong" }));
+      case "sessionCheck":
+        console.log("Received session check from user:", user.id);
+        const exists = await verifySession(user.id);
+        if (exists) {
+          ws.send(JSON.stringify({ type: "sessionExists" }));
         }
         break;
       default:
