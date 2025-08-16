@@ -15,25 +15,20 @@ export async function createSession(
     .from("focus_sessions")
     .select("*")
     .eq("user_id", userId)
-    .is("end_time", null)
-    .order("created_at", { ascending: true })
+    .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
 
   if (data != null) {
-    console.log(
-      new Date(),
-      "Session is active somewhere; deleting previous session for user:",
-      userId
-    );
-    await supabase
-      .from("focus_sessions")
-      .delete()
-      .eq("user_id", userId)
-      .is("end_time", null);
+    if (data.end_time == null || data.start_time == null) {
+      await supabase.from("focus_sessions").delete().eq("id", data?.id);
+      console.log(
+        new Date(),
+        "Deleted and creating new session for user:",
+        userId
+      );
+    }
   }
-
-  console.log(new Date(), "Deleted and creating new session for user:", userId);
 
   const { data: newSession, error: createError } = await supabase
     .from("focus_sessions")
@@ -41,7 +36,6 @@ export async function createSession(
       user_id: userId,
       session_type: sessionType,
       notes: notes,
-      created_at: new Date(),
       last_heartbeat: new Date(),
     })
     .select("*")
@@ -56,31 +50,29 @@ export async function createSession(
 }
 
 export async function startSession(userId: string) {
-  // Grab the most recent session for the user where start_time is null
+  // Fetch the most recent session with start_time null
   const { data: session, error: fetchError } = await supabase
     .from("focus_sessions")
     .select("id")
     .eq("user_id", userId)
-    .is("start_time", null)
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
 
   if (fetchError || !session) {
-    console.error("Error fetching most recent session:", fetchError);
+    console.error("Error fetching session to start:", fetchError);
     return;
   }
 
-  const { error } = await supabase
+  // Update the start_time for that session
+  const { data, error: updateError } = await supabase
     .from("focus_sessions")
-    .update({
-      last_heartbeat: new Date(),
-      start_time: new Date(),
-    })
-    .eq("id", session.id);
+    .update({ start_time: new Date() })
+    .eq("id", session.id)
+    .maybeSingle();
 
-  if (error) {
-    console.error("Error starting session:", error);
+  if (fetchError || !data) {
+    console.error("Error starting most recent session:", fetchError);
     return;
   }
 }
@@ -88,34 +80,42 @@ export async function startSession(userId: string) {
 export async function endSession(userId: string) {
   const { data, error } = await supabase
     .from("focus_sessions")
-    .select("start_time")
+    .select("id, start_time")
     .eq("user_id", userId)
-    .order("start_time", { ascending: false })
+    .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
+
+  if (!data?.start_time) {
+    console.log(
+      new Date(),
+      "Ending and deleting unused session for user:",
+      userId
+    );
+    await supabase
+      .from("focus_sessions")
+      .delete()
+      .eq("id", data?.id)
+      .is("start_time", null);
+  } else if (data?.start_time) {
+    console.log(
+      new Date(),
+      "Ending and saving active session for user:",
+      userId
+    );
+    await supabase
+      .from("focus_sessions")
+      .update({
+        end_time: new Date(),
+      })
+      .eq("id", data.id)
+      .is("end_time", null);
+  }
 
   if (error) {
     console.error("Error ending session:", error);
     return;
   }
-
-  if (!data?.start_time) {
-    console.log(new Date(), "No start time found, deleting session");
-    await supabase
-      .from("focus_sessions")
-      .delete()
-      .eq("user_id", userId)
-      .is("start_time", null);
-    return;
-  }
-
-  await supabase
-    .from("focus_sessions")
-    .update({
-      end_time: new Date(),
-    })
-    .eq("user_id", userId)
-    .is("end_time", null);
 }
 
 export async function updateSessionHeartbeat(userId: string) {
@@ -125,7 +125,7 @@ export async function updateSessionHeartbeat(userId: string) {
     .select("*")
     .eq("user_id", userId)
     .is("end_time", null)
-    .order("start_time", { ascending: false })
+    .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
 
@@ -155,7 +155,7 @@ export async function verifySession(userId: string) {
     .select("*")
     .eq("user_id", userId)
     .is("end_time", null)
-    .order("created_at", { ascending: true })
+    .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
 

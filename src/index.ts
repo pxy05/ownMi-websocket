@@ -38,17 +38,22 @@ wss.on("connection", async (ws, req) => {
       case "create-session":
         console.log(new Date(), "Creating session for user:", user.id);
         await createSession(user.id, "from_zero", null);
+        break;
+
       case "start-session":
         console.log(new Date(), "Starting session for user:", user.id);
         await startSession(user.id);
         break;
+
       case "end-session":
         console.log(new Date(), "Ending session for user:", user.id);
         await endSession(user.id);
         break;
+
       case "heartbeat":
         await updateSessionHeartbeat(user.id);
         break;
+
       case "sessionCheck":
         const exists = await verifySession(user.id);
         if (exists) {
@@ -57,6 +62,7 @@ wss.on("connection", async (ws, req) => {
           ws.send(JSON.stringify({ type: "noSessionExists" }));
         }
         break;
+
       default:
         break;
     }
