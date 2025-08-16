@@ -11,20 +11,47 @@ export async function createSession(
   sessionType: string,
   notes: string | null
 ) {
-  //   user_id uuid not null,
-  //   session_type character varying(20) not null,
-  //   last_heartbeat timestamp without time zone not null,
+  const { data, error } = await supabase
+    .from("focus_sessions")
+    .select("*")
+    .eq("user_id", userId)
+    .is("end_time", null)
+    .order("created_at", { ascending: true })
+    .limit(1)
+    .maybeSingle();
 
-  const { error } = await supabase.from("focus_sessions").insert({
-    user_id: userId,
-    session_type: sessionType,
-    notes: notes,
-  });
-
-  if (error) {
-    console.error("Error creating session:", error);
-    return;
+  if (data != null) {
+    console.log(
+      "Session is active somewhere; deleting previous session for user:",
+      userId
+    );
+    await supabase
+      .from("focus_sessions")
+      .delete()
+      .eq("user_id", userId)
+      .is("end_time", null);
   }
+
+  console.log("Deleted and creating new session for user:", userId);
+
+  const { data: newSession, error: createError } = await supabase
+    .from("focus_sessions")
+    .insert({
+      user_id: userId,
+      session_type: sessionType,
+      notes: notes,
+      created_at: new Date(),
+      last_heartbeat: new Date(),
+    })
+    .select("*")
+    .maybeSingle();
+
+  if (error || !newSession) {
+    console.error("Error creating session:", createError);
+    return false;
+  }
+
+  return true;
 }
 
 export async function startSession(userId: string) {
@@ -36,7 +63,7 @@ export async function startSession(userId: string) {
     .is("start_time", null)
     .order("created_at", { ascending: false })
     .limit(1)
-    .single();
+    .maybeSingle();
 
   if (fetchError || !session) {
     console.error("Error fetching most recent session:", fetchError);
@@ -64,7 +91,7 @@ export async function endSession(userId: string) {
     .eq("user_id", userId)
     .order("start_time", { ascending: false })
     .limit(1)
-    .single();
+    .maybeSingle();
 
   if (error) {
     console.error("Error ending session:", error);
@@ -73,19 +100,33 @@ export async function endSession(userId: string) {
 
   if (!data?.start_time) {
     console.log("No start time found, deleting session");
+    await supabase
+      .from("focus_sessions")
+      .delete()
+      .eq("user_id", userId)
+      .is("start_time", null);
     return;
   }
+
+  await supabase
+    .from("focus_sessions")
+    .update({
+      end_time: new Date(),
+    })
+    .eq("user_id", userId)
+    .is("end_time", null);
 }
 
 export async function updateSessionHeartbeat(userId: string) {
   // Grab the most recent session for the user
   const { data: session, error: fetchError } = await supabase
     .from("focus_sessions")
-    .select("id")
+    .select("*")
     .eq("user_id", userId)
+    .is("end_time", null)
     .order("start_time", { ascending: false })
     .limit(1)
-    .single();
+    .maybeSingle();
 
   if (fetchError || !session) {
     console.error("Error fetching most recent session:", fetchError);
@@ -103,9 +144,11 @@ export async function updateSessionHeartbeat(userId: string) {
     console.error("Error updating session heartbeat:", error);
     return;
   }
+  console.log("Session heartbeat updated for user:", userId);
 }
 
 export async function verifySession(userId: string) {
+  console.log("Verifying session for user:", userId);
   const { data, error } = await supabase
     .from("focus_sessions")
     .select("*")
@@ -113,27 +156,12 @@ export async function verifySession(userId: string) {
     .is("end_time", null)
     .order("created_at", { ascending: true })
     .limit(1)
-    .single();
+    .maybeSingle();
 
-  if (data?.end_time == null) {
-    console.log(
-      "Session is active somewhere; deleting previous session for user:",
-      userId
-    );
-    await supabase
-      .from("focus_sessions")
-      .delete()
-      .eq("user_id", userId)
-      .is("end_time", null);
-  }
-
-  console.log("Deleted and creating new session for user:", userId);
-  await createSession(userId, "from_zero", null);
-
-  if (error || !data) {
+  if (error) {
     console.error("Error verifying session:", error);
     return false;
   }
 
-  return true;
+  return !!data;
 }

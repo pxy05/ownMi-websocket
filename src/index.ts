@@ -28,7 +28,6 @@ wss.on("connection", async (ws, req) => {
 
   ws.on("message", async (msg) => {
     const data = JSON.parse(msg.toString());
-    console.log("Received WebSocket message:", data);
 
     if (!data.type && typeof data.type !== "string") {
       console.error("Invalid message type:", data);
@@ -48,14 +47,14 @@ wss.on("connection", async (ws, req) => {
         await endSession(user.id);
         break;
       case "heartbeat":
-        console.log("Updating heartbeat for user:", user.id);
         await updateSessionHeartbeat(user.id);
         break;
       case "sessionCheck":
-        console.log("Received session check from user:", user.id);
         const exists = await verifySession(user.id);
         if (exists) {
           ws.send(JSON.stringify({ type: "sessionExists" }));
+        } else {
+          ws.send(JSON.stringify({ type: "noSessionExists" }));
         }
         break;
       default:
