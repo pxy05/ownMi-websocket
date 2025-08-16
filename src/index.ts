@@ -36,14 +36,14 @@ wss.on("connection", async (ws, req) => {
 
     switch (data.type) {
       case "create-session":
-        console.log("Creating session for user:", user.id);
+        console.log(new Date(), "Creating session for user:", user.id);
         await createSession(user.id, "from_zero", null);
       case "start-session":
-        console.log("Starting session for user:", user.id);
+        console.log(new Date(), "Starting session for user:", user.id);
         await startSession(user.id);
         break;
       case "end-session":
-        console.log("Ending session for user:", user.id);
+        console.log(new Date(), "Ending session for user:", user.id);
         await endSession(user.id);
         break;
       case "heartbeat":

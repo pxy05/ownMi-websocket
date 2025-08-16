@@ -22,6 +22,7 @@ export async function createSession(
 
   if (data != null) {
     console.log(
+      new Date(),
       "Session is active somewhere; deleting previous session for user:",
       userId
     );
@@ -32,7 +33,7 @@ export async function createSession(
       .is("end_time", null);
   }
 
-  console.log("Deleted and creating new session for user:", userId);
+  console.log(new Date(), "Deleted and creating new session for user:", userId);
 
   const { data: newSession, error: createError } = await supabase
     .from("focus_sessions")
@@ -99,7 +100,7 @@ export async function endSession(userId: string) {
   }
 
   if (!data?.start_time) {
-    console.log("No start time found, deleting session");
+    console.log(new Date(), "No start time found, deleting session");
     await supabase
       .from("focus_sessions")
       .delete()
@@ -144,11 +145,11 @@ export async function updateSessionHeartbeat(userId: string) {
     console.error("Error updating session heartbeat:", error);
     return;
   }
-  console.log("Session heartbeat updated for user:", userId);
+  console.log(new Date(), "Session heartbeat updated for user:", userId);
 }
 
 export async function verifySession(userId: string) {
-  console.log("Verifying session for user:", userId);
+  console.log(new Date(), "Verifying session for user:", userId);
   const { data, error } = await supabase
     .from("focus_sessions")
     .select("*")
