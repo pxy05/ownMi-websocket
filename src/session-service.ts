@@ -104,3 +104,36 @@ export async function updateSessionHeartbeat(userId: string) {
     return;
   }
 }
+
+export async function verifySession(userId: string) {
+  const { data, error } = await supabase
+    .from("focus_sessions")
+    .select("*")
+    .eq("user_id", userId)
+    .is("end_time", null)
+    .order("created_at", { ascending: true })
+    .limit(1)
+    .single();
+
+  if (data?.end_time == null) {
+    console.log(
+      "Session is active somewhere; deleting previous session for user:",
+      userId
+    );
+    await supabase
+      .from("focus_sessions")
+      .delete()
+      .eq("user_id", userId)
+      .is("end_time", null);
+  }
+
+  console.log("Deleted and creating new session for user:", userId);
+  await createSession(userId, "from_zero", null);
+
+  if (error || !data) {
+    console.error("Error verifying session:", error);
+    return false;
+  }
+
+  return true;
+}

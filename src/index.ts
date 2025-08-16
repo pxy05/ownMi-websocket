@@ -5,6 +5,7 @@ import {
   endSession,
   startSession,
   createSession,
+  verifySession,
 } from "./session-service";
 
 const PORT = process.env.WS_PORT;
@@ -49,20 +50,23 @@ wss.on("connection", async (ws, req) => {
       case "heartbeat":
         console.log("Updating heartbeat for user:", user.id);
         await updateSessionHeartbeat(user.id);
-
+        break;
       case "ping":
         console.log("Received ping from user:", user.id);
-        ws.send(JSON.stringify({ type: "pong" }));
+        const iexist = await verifySession(user.id);
+        if (iexist) {
+          ws.send(JSON.stringify({ type: "pong" }));
+        }
         break;
       default:
         break;
     }
   });
-});
 
-wss.on("close", async (ws) => {
-  console.log("WebSocket connection closed");
-  await endSession(user.id);
+  ws.on("close", async () => {
+    console.log("WebSocket connection closed for user:", user.id);
+    await endSession(user.id);
+  });
 });
 
 console.log(`✅ WebSocket server running on ws://localhost:${PORT}`);
