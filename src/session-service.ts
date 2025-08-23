@@ -15,6 +15,7 @@ export async function createSession(
     .from("focus_sessions")
     .select("*")
     .eq("user_id", userId)
+    .eq("end_time", null)
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
@@ -41,7 +42,7 @@ export async function createSession(
     .select("*")
     .maybeSingle();
 
-  if (error || !newSession) {
+  if (createError || !newSession) {
     console.error("Error creating session:", createError);
     return false;
   }
@@ -65,19 +66,25 @@ export async function startSession(userId: string) {
   }
 
   // Update the start_time for that session
+  const start_time = new Date();
   const { data, error: updateError } = await supabase
     .from("focus_sessions")
-    .update({ start_time: new Date() })
+    .update({ start_time: start_time.toISOString() })
     .eq("id", session.id)
     .maybeSingle();
 
-  if (fetchError || !data) {
-    console.error("Error starting most recent session:", fetchError);
+  console.log(new Date(), "Session started for user:", userId);
+
+  if (updateError) {
+    console.error("Error starting most recent session:", updateError.message);
     return;
   }
 }
 
 export async function endSession(userId: string) {
+
+  const end = new Date();
+
   const { data, error } = await supabase
     .from("focus_sessions")
     .select("id, start_time")
@@ -85,6 +92,11 @@ export async function endSession(userId: string) {
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
+
+  if (error) {
+    console.error("Error fetching session to end:", error);
+    return;
+  }
 
   if (!data?.start_time) {
     console.log(
@@ -97,29 +109,47 @@ export async function endSession(userId: string) {
       .delete()
       .eq("id", data?.id)
       .is("start_time", null);
-  } else if (data?.start_time) {
-    console.log(
-      new Date(),
-      "Ending and saving active session for user:",
-      userId
-    );
-    await supabase
-      .from("focus_sessions")
-      .update({
-        end_time: new Date(),
-      })
-      .eq("id", data.id)
-      .is("end_time", null);
+    return;
+
+  }
+  
+  const start = new Date(data.start_time as unknown as string);
+  const duration_seconds = Math.floor(
+    (end.getTime() - start.getTime()) / 1000)
+  
+  if (duration_seconds < 0 || duration_seconds > 24 * 60 * 60 * 8) { // > 8 days
+  console.warn("Suspicious duration_seconds:", {
+    userId, start: data.start_time, end: end.toISOString(), duration_seconds
+    });
   }
 
-  if (error) {
-    console.error("Error ending session:", error);
+  console.log(
+    new Date(),
+    "(", duration_seconds, ") Ending and saving active session for user:",
+    userId
+  );
+
+  const { error: updError } = await supabase
+    .from("focus_sessions")
+    .update({
+      end_time: end.toISOString(),
+      duration_seconds: duration_seconds,
+    })
+    .eq("id", data.id)
+    .is("end_time", null);
+  
+
+  if (updError) {
+    console.error("Error ending session:", updError);
     return;
   }
 }
 
 export async function updateSessionHeartbeat(userId: string) {
   // Grab the most recent session for the user
+
+  const heartbeat = new Date()
+
   const { data: session, error: fetchError } = await supabase
     .from("focus_sessions")
     .select("*")
@@ -137,7 +167,7 @@ export async function updateSessionHeartbeat(userId: string) {
   const { error } = await supabase
     .from("focus_sessions")
     .update({
-      last_heartbeat: new Date(),
+      last_heartbeat: heartbeat.toISOString(),
     })
     .eq("id", session.id);
 
