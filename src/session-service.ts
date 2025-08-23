@@ -69,7 +69,7 @@ export async function startSession(userId: string) {
   const start_time = new Date();
   const { data, error: updateError } = await supabase
     .from("focus_sessions")
-    .update({ start_time: start_time.toISOString() })
+    .update({ start_time: start_time })
     .eq("id", session.id)
     .maybeSingle();
 
@@ -82,7 +82,6 @@ export async function startSession(userId: string) {
 }
 
 export async function endSession(userId: string) {
-
   const end = new Date();
 
   const { data, error } = await supabase
@@ -110,22 +109,26 @@ export async function endSession(userId: string) {
       .eq("id", data?.id)
       .is("start_time", null);
     return;
-
   }
-  
+
   const start = new Date(data.start_time as unknown as string);
-  const duration_seconds = Math.floor(
-    (end.getTime() - start.getTime()) / 1000)
-  
-  if (duration_seconds < 0 || duration_seconds > 24 * 60 * 60 * 8) { // > 8 days
-  console.warn("Suspicious duration_seconds:", {
-    userId, start: data.start_time, end: end.toISOString(), duration_seconds
+  const duration_seconds = Math.floor((end.getTime() - start.getTime()) / 1000);
+
+  if (duration_seconds < 0 || duration_seconds > 24 * 60 * 60 * 8) {
+    // > 8 days
+    console.warn("Suspicious duration_seconds:", {
+      userId,
+      start: data.start_time,
+      end: end.toISOString(),
+      duration_seconds,
     });
   }
 
   console.log(
     new Date(),
-    "(", duration_seconds, ") Ending and saving active session for user:",
+    "(",
+    duration_seconds,
+    ") Ending and saving active session for user:",
     userId
   );
 
@@ -137,7 +140,6 @@ export async function endSession(userId: string) {
     })
     .eq("id", data.id)
     .is("end_time", null);
-  
 
   if (updError) {
     console.error("Error ending session:", updError);
@@ -148,7 +150,7 @@ export async function endSession(userId: string) {
 export async function updateSessionHeartbeat(userId: string) {
   // Grab the most recent session for the user
 
-  const heartbeat = new Date()
+  const heartbeat = new Date();
 
   const { data: session, error: fetchError } = await supabase
     .from("focus_sessions")
