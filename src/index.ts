@@ -38,23 +38,26 @@ wss.on("connection", async (ws, req) => {
       case "create-session":
         console.log(new Date(), "Creating session for user:", user.id);
         await createSession(user.id, "from_zero", null);
+        ws.send(JSON.stringify({ type: "sessionCreated" }));
         break;
 
       case "start-session":
         console.log(new Date(), "Starting session for user:", user.id);
         await startSession(user.id);
+        ws.send(JSON.stringify({ type: "sessionStarted" }));
         break;
 
       case "end-session":
         console.log(new Date(), "Ending session for user:", user.id);
         await endSession(user.id);
+        ws.send(JSON.stringify({ type: "sessionEnded" }));
         break;
 
       case "heartbeat":
         await updateSessionHeartbeat(user.id);
         break;
 
-      case "sessionCheck":
+      case "session-check":
         const exists = await verifySession(user.id);
         if (exists) {
           ws.send(JSON.stringify({ type: "sessionExists" }));

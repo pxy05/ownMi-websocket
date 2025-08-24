@@ -21,13 +21,20 @@ export async function createSession(
     .maybeSingle();
 
   if (data != null) {
-    if (data.end_time == null || data.start_time == null) {
+    if (data.start_time == null) {
       await supabase.from("focus_sessions").delete().eq("id", data?.id);
       console.log(
         new Date(),
         "Deleted and creating new session for user:",
         userId
       );
+      return;
+    }
+
+    if (data.start_time < new Date().getTime() - 60 * 1000) {
+      console.log(new Date(), "Session expired for user:", userId);
+      await supabase.from("focus_sessions").delete().eq("id", data?.id);
+      return;
     }
   }
 
@@ -86,7 +93,7 @@ export async function endSession(userId: string) {
 
   const { data, error } = await supabase
     .from("focus_sessions")
-    .select("id, start_time")
+    .select("id, start_time, last_heartbeat")
     .eq("user_id", userId)
     .order("created_at", { ascending: false })
     .limit(1)
@@ -177,7 +184,7 @@ export async function updateSessionHeartbeat(userId: string) {
     console.error("Error updating session heartbeat:", error);
     return;
   }
-  console.log(new Date(), "Session heartbeat updated for user:", userId);
+  // console.log(new Date(), "Session heartbeat updated for user:", userId);
 }
 
 export async function verifySession(userId: string) {
