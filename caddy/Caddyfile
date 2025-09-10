@@ -1,0 +1,5 @@
+prajyakha.com {
+	reverse_proxy /ws* ws-focusmi:4001
+
+	reverse_proxy /* focusmi:3000
+}

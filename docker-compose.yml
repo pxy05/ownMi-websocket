@@ -1,0 +1,32 @@
+version: "3.9"
+
+services:
+  websocket:
+    build: .
+    container_name: ws-focusmi
+    expose:
+      - "4001"  # internal port only, no host mapping needed
+    networks:
+      - focusmi-net
+
+  caddy:
+    image: caddy:latest
+    container_name: caddy
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - websocket
+
+networks:
+  focusmi-net:
+    external: true
+
+volumes:
+  caddy_data:
+  caddy_config:
+
