@@ -1,11 +1,8 @@
 import { WebSocketServer } from "ws";
 import { verifyUserToken } from "./verify-user";
 import {
-  updateSessionHeartbeat,
   endSession,
   startSession,
-  createSession,
-  verifySession,
 } from "./session-service";
 
 const PORT = process.env.WS_PORT;
@@ -35,6 +32,9 @@ wss.on("connection", async (ws, req) => {
     }
 
     switch (data.type) {
+
+      case "startSession":
+        console.log()
       case "create-session":
         console.log(new Date(), "Creating session for user:", user.id);
         await createSession(user.id, "from_zero", null);
@@ -67,6 +67,7 @@ wss.on("connection", async (ws, req) => {
         break;
 
       default:
+        ws.send(JSON.stringify({ type: "unknownMessage", message: data.type }));
         break;
     }
   });
